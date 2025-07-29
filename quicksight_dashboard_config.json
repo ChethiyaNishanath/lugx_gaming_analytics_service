@@ -1,0 +1,275 @@
+{
+  "quicksight_dashboard_config": {
+    "dashboard_name": "Analytics Dashboard",
+    "description": "Comprehensive analytics dashboard for web traffic and user behavior",
+    "data_sources": [
+      {
+        "name": "PageViewAnalytics",
+        "type": "S3",
+        "s3_config": {
+          "bucket": "your-analytics-bucket",
+          "key_prefix": "quicksight/analytics/",
+          "file_pattern": "page_view_analytics_*.csv"
+        },
+        "schema": {
+          "hour": "datetime",
+          "page_views": "integer",
+          "unique_sessions": "integer", 
+          "unique_users": "integer",
+          "avg_load_time": "decimal",
+          "avg_time_on_page": "decimal"
+        }
+      },
+      {
+        "name": "TopPages",
+        "type": "S3",
+        "s3_config": {
+          "bucket": "your-analytics-bucket",
+          "key_prefix": "quicksight/analytics/",
+          "file_pattern": "top_pages_*.csv"
+        },
+        "schema": {
+          "page_url": "string",
+          "page_title": "string",
+          "views": "integer",
+          "unique_sessions": "integer",
+          "avg_load_time": "decimal",
+          "avg_time_on_page": "decimal",
+          "bounces": "integer",
+          "bounce_rate": "decimal"
+        }
+      },
+      {
+        "name": "ClickAnalytics",
+        "type": "S3",
+        "s3_config": {
+          "bucket": "your-analytics-bucket",
+          "key_prefix": "quicksight/analytics/",
+          "file_pattern": "click_analytics_*.csv"
+        },
+        "schema": {
+          "page_url": "string",
+          "element_tag": "string",
+          "element_id": "string",
+          "element_class": "string",
+          "clicks": "integer",
+          "unique_sessions": "integer",
+          "avg_x": "decimal",
+          "avg_y": "decimal",
+          "double_clicks": "integer"
+        }
+      },
+      {
+        "name": "SessionAnalytics",
+        "type": "S3",
+        "s3_config": {
+          "bucket": "your-analytics-bucket",
+          "key_prefix": "quicksight/analytics/",
+          "file_pattern": "session_analytics_*.csv"
+        },
+        "schema": {
+          "avg_session_duration": "decimal",
+          "avg_pages_per_session": "decimal",
+          "avg_clicks_per_session": "decimal",
+          "total_bounces": "integer",
+          "total_sessions": "integer",
+          "bounce_rate": "decimal"
+        }
+      },
+      {
+        "name": "RealtimeMetrics",
+        "type": "S3",
+        "s3_config": {
+          "bucket": "your-analytics-bucket",
+          "key_prefix": "quicksight/analytics/",
+          "file_pattern": "realtime_metrics_*.csv"
+        },
+        "schema": {
+          "page_views_last_hour": "integer",
+          "clicks_last_hour": "integer",
+          "scroll_events_last_hour": "integer",
+          "active_sessions": "integer",
+          "active_users": "integer"
+        }
+      }
+    ],
+    "sheets": [
+      {
+        "name": "Traffic Overview",
+        "visuals": [
+          {
+            "type": "line_chart",
+            "title": "Page Views Over Time",
+            "data_source": "PageViewAnalytics",
+            "x_axis": "hour",
+            "y_axis": "page_views",
+            "size": {"width": 6, "height": 4}
+          },
+          {
+            "type": "kpi",
+            "title": "Total Sessions",
+            "data_source": "PageViewAnalytics",
+            "value": "SUM(unique_sessions)",
+            "size": {"width": 2, "height": 2}
+          },
+          {
+            "type": "kpi", 
+            "title": "Unique Users",
+            "data_source": "PageViewAnalytics",
+            "value": "SUM(unique_users)",
+            "size": {"width": 2, "height": 2}
+          },
+          {
+            "type": "kpi",
+            "title": "Bounce Rate",
+            "data_source": "SessionAnalytics", 
+            "value": "AVG(bounce_rate)",
+            "format": "percentage",
+            "size": {"width": 2, "height": 2}
+          },
+          {
+            "type": "bar_chart",
+            "title": "Top 10 Pages",
+            "data_source": "TopPages",
+            "x_axis": "page_title",
+            "y_axis": "views",
+            "sort": "descending",
+            "limit": 10,
+            "size": {"width": 6, "height": 4}
+          }
+        ]
+      },
+      {
+        "name": "User Engagement",
+        "visuals": [
+          {
+            "type": "scatter_plot",
+            "title": "Load Time vs Bounce Rate",
+            "data_source": "TopPages",
+            "x_axis": "avg_load_time",
+            "y_axis": "bounce_rate",
+            "size_by": "views",
+            "size": {"width": 6, "height": 4}
+          },
+          {
+            "type": "histogram",
+            "title": "Session Duration Distribution",
+            "data_source": "SessionAnalytics",
+            "value": "avg_session_duration",
+            "bins": 20,
+            "size": {"width": 6, "height": 4}
+          },
+          {
+            "type": "heat_map",
+            "title": "Click Heatmap",
+            "data_source": "ClickAnalytics",
+            "x_axis": "avg_x",
+            "y_axis": "avg_y", 
+            "value": "clicks",
+            "size": {"width": 12, "height": 6}
+          }
+        ]
+      },
+      {
+        "name": "Performance Monitoring",
+        "visuals": [
+          {
+            "type": "gauge",
+            "title": "Average Load Time",
+            "data_source": "TopPages",
+            "value": "AVG(avg_load_time)",
+            "min_value": 0,
+            "max_value": 5000,
+            "thresholds": [
+              {"value": 1000, "color": "green"},
+              {"value": 3000, "color": "yellow"},
+              {"value": 5000, "color": "red"}
+            ],
+            "size": {"width": 3, "height": 3}
+          },
+          {
+            "type": "table",
+            "title": "Page Performance Details",
+            "data_source": "TopPages",
+            "columns": [
+              "page_title",
+              "views", 
+              "avg_load_time",
+              "bounce_rate"
+            ],
+            "sort_by": "avg_load_time",
+            "sort_order": "descending",
+            "size": {"width": 9, "height": 6}
+          },
+          {
+            "type": "line_chart",
+            "title": "Performance Trends",
+            "data_source": "PageViewAnalytics",
+            "x_axis": "hour",
+            "y_axis": "avg_load_time",
+            "size": {"width": 12, "height": 4}
+          }
+        ]
+      },
+      {
+        "name": "Real-time Dashboard", 
+        "refresh_interval": 300,
+        "visuals": [
+          {
+            "type": "kpi",
+            "title": "Page Views (Last Hour)",
+            "data_source": "RealtimeMetrics",
+            "value": "page_views_last_hour",
+            "size": {"width": 3, "height": 2}
+          },
+          {
+            "type": "kpi",
+            "title": "Clicks (Last Hour)",
+            "data_source": "RealtimeMetrics", 
+            "value": "clicks_last_hour",
+            "size": {"width": 3, "height": 2}
+          },
+          {
+            "type": "kpi",
+            "title": "Active Sessions",
+            "data_source": "RealtimeMetrics",
+            "value": "active_sessions",
+            "size": {"width": 3, "height": 2}
+          },
+          {
+            "type": "kpi",
+            "title": "Active Users",
+            "data_source": "RealtimeMetrics",
+            "value": "active_users", 
+            "size": {"width": 3, "height": 2}
+          }
+        ]
+      }
+    ],
+    "filters": [
+      {
+        "name": "date_range",
+        "type": "date_range",
+        "applies_to": ["PageViewAnalytics", "TopPages", "ClickAnalytics"]
+      },
+      {
+        "name": "page_filter",
+        "type": "list",
+        "field": "page_url",
+        "applies_to": ["TopPages", "ClickAnalytics"]
+      }
+    ],
+    "parameters": [
+      {
+        "name": "time_range",
+        "type": "string",
+        "default_value": "24h",
+        "allowed_values": ["1h", "24h", "7d", "30d"]
+      }
+    ],
+    "refresh_schedule": {
+      "frequency": "hourly",
+      "timezone": "UTC"
+    }
+  }
+}
