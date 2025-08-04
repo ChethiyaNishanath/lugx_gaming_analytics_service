@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: analytics-service-config
+  namespace: analytics-service
+  labels:
+    app: analytics-service
+data:
+  application.properties: |
+    # Reduce actuator health check logging
+    logging.level.org.springframework.web.servlet.DispatcherServlet=INFO
+    logging.level.org.springframework.web.servlet.mvc.method.annotation=INFO
+    logging.level.org.springframework.boot.actuate=INFO
+    
+    # Application settings
+    spring.application.name=analytics-service
+    spring.profiles.active=kubernetes
+    
+    # Database settings (H2 for demo)
+    spring.datasource.url=jdbc:h2:mem:analyticsdb
+    spring.datasource.username=sa
+    spring.datasource.password=password
+    spring.jpa.hibernate.ddl-auto=create-drop
+    
+    # Actuator settings
+    management.endpoints.web.exposure.include=health,info,metrics
+    management.endpoint.health.show-details=when-authorized
