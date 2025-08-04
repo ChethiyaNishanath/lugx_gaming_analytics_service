@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics Integration Example</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            background: #f4f4f4;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        button {
+            background: #007cba;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #005a8b;
+        }
+        .analytics-info {
+            background: #e8f5e8;
+            padding: 15px;
+            border-left: 4px solid #4caf50;
+            margin: 20px 0;
+        }
+        .event-log {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            padding: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Analytics Integration Demo</h1>
+    
+    <div class="analytics-info">
+        <h3>🎯 Analytics Status</h3>
+        <p>Session ID: <span id="sessionId"></span></p>
+        <p>User ID: <span id="userId">Not set</span></p>
+        <p>Current Page: <span id="currentPage"></span></p>
+    </div>
+
+    <div class="container">
+        <h2>Test Analytics Events</h2>
+        <p>Click the buttons below to test different types of analytics events:</p>
+        
+        <button onclick="testPageView()">📄 Track Page View</button>
+        <button onclick="testCustomClick()">👆 Track Click Event</button>
+        <button onclick="testScrollEvent()">📜 Track Scroll Event</button>
+        <button onclick="setTestUser()">👤 Set User ID</button>
+        <button onclick="trackCustomEvent()">⭐ Custom Event</button>
+    </div>
+
+    <div class="container">
+        <h2>User Actions</h2>
+        <p>These elements will automatically track analytics events when interacted with:</p>
+        
+        <button id="trackableButton">Trackable Button</button>
+        <a href="#section1" id="trackableLink">Trackable Link</a>
+        
+        <div style="margin-top: 20px;">
+            <input type="text" placeholder="Type something..." style="padding: 8px; margin-right: 10px;">
+            <button onclick="simulateFormSubmit()">Submit Form</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>Content to Scroll</h2>
+        <p>Scroll down this page to trigger scroll events automatically.</p>
+        
+        <div style="height: 300px; background: linear-gradient(45deg, #f0f0f0, #e0e0e0); 
+                    display: flex; align-items: center; justify-content: center; 
+                    font-size: 24px; color: #666;">
+            Scroll Content Area 1
+        </div>
+        
+        <div style="height: 300px; background: linear-gradient(45deg, #e0e0e0, #d0d0d0); 
+                    display: flex; align-items: center; justify-content: center; 
+                    font-size: 24px; color: #666;">
+            Scroll Content Area 2
+        </div>
+        
+        <div style="height: 300px; background: linear-gradient(45deg, #d0d0d0, #c0c0c0); 
+                    display: flex; align-items: center; justify-content: center; 
+                    font-size: 24px; color: #666;">
+            Scroll Content Area 3
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>Event Log</h2>
+        <div id="eventLog" class="event-log">
+            Events will appear here...
+        </div>
+        <button onclick="clearLog()" style="margin-top: 10px; background: #dc3545;">Clear Log</button>
+    </div>
+
+    <!-- Include the Analytics SDK -->
+    <script src="analytics-sdk.js"></script>
+    
+    <script>
+        // Initialize Analytics SDK
+        Analytics.init({
+            apiUrl: 'http://localhost:3000/analytics/events'  // Change this to your backend URL
+        });
+
+        // Update UI with session info
+        document.getElementById('sessionId').textContent = Analytics.sessionId;
+        document.getElementById('currentPage').textContent = window.location.href;
+
+        // Override console.log to show events in the log
+        const originalLog = console.log;
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            if (args[0] && args[0].includes('Successfully tracked')) {
+                logEvent(args.join(' '));
+            }
+        };
+
+        function logEvent(message) {
+            const eventLog = document.getElementById('eventLog');
+            const timestamp = new Date().toLocaleTimeString();
+            eventLog.innerHTML += `[${timestamp}] ${message}\n`;
+            eventLog.scrollTop = eventLog.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('eventLog').innerHTML = 'Events will appear here...\n';
+        }
+
+        // Test functions
+        function testPageView() {
+            Analytics.trackPageView({ 
+                custom_property: 'manual_page_view',
+                test_mode: true 
+            });
+            logEvent('Manual page view tracked');
+        }
+
+        function testCustomClick() {
+            const fakeElement = {
+                id: 'test-element',
+                textContent: 'Test Button',
+                getBoundingClientRect: () => ({ left: 100, top: 100, width: 100, height: 30 })
+            };
+            Analytics.trackClick(fakeElement, { 
+                manual_click: true,
+                test_mode: true 
+            });
+            logEvent('Manual click event tracked');
+        }
+
+        function testScrollEvent() {
+            Analytics.trackScroll({ 
+                manual_scroll: true,
+                test_mode: true 
+            });
+            logEvent('Manual scroll event tracked');
+        }
+
+        function setTestUser() {
+            const userId = 'user_' + Math.random().toString(36).substr(2, 9);
+            Analytics.setUserId(userId);
+            document.getElementById('userId').textContent = userId;
+            logEvent(`User ID set to: ${userId}`);
+        }
+
+        function trackCustomEvent() {
+            Analytics.track('custom_button_click', {
+                button_name: 'demo_button',
+                page_section: 'testing_area',
+                timestamp: new Date().toISOString()
+            });
+            logEvent('Custom event tracked');
+        }
+
+        function simulateFormSubmit() {
+            // Track form submission as a custom click event
+            const formButton = document.querySelector('button[onclick="simulateFormSubmit()"]');
+            Analytics.trackClick(formButton, { 
+                event_type: 'form_submit',
+                form_name: 'demo_form' 
+            });
+            logEvent('Form submission tracked');
+        }
+
+        // Log initial page load
+        logEvent(`Analytics SDK initialized for session: ${Analytics.sessionId}`);
+    </script>
+</body>
+</html>
