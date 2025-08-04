@@ -15,6 +15,7 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -23,6 +24,12 @@ public class ClickHouseService {
   private static final Logger logger = LoggerFactory.getLogger(ClickHouseService.class);
 
   @Autowired private Connection clickHouseConnection;
+  
+  @Autowired(required = false) 
+  private RedshiftService redshiftService;
+  
+  @Value("${aws.redshift.enabled:false}")
+  private boolean redshiftEnabled;
 
   public void insertPageViewEvents(List<PageViewEvent> events) throws SQLException {
     String sql =
@@ -55,6 +62,12 @@ public class ClickHouseService {
 
       stmt.executeBatch();
       logger.info("Successfully inserted {} page view events into ClickHouse", events.size());
+      
+      // Also insert to Redshift if enabled
+      if (redshiftEnabled && redshiftService != null) {
+        redshiftService.insertPageViewEventsAsync(events);
+        logger.debug("Triggered async Redshift insert for {} page view events", events.size());
+      }
     }
   }
 
@@ -91,6 +104,12 @@ public class ClickHouseService {
 
       stmt.executeBatch();
       logger.info("Successfully inserted {} click events into ClickHouse", events.size());
+      
+      // Also insert to Redshift if enabled
+      if (redshiftEnabled && redshiftService != null) {
+        redshiftService.insertClickEventsAsync(events);
+        logger.debug("Triggered async Redshift insert for {} click events", events.size());
+      }
     }
   }
 
@@ -124,6 +143,12 @@ public class ClickHouseService {
 
       stmt.executeBatch();
       logger.info("Successfully inserted {} scroll events into ClickHouse", events.size());
+      
+      // Also insert to Redshift if enabled
+      if (redshiftEnabled && redshiftService != null) {
+        redshiftService.insertScrollEventsAsync(events);
+        logger.debug("Triggered async Redshift insert for {} scroll events", events.size());
+      }
     }
   }
 
@@ -156,13 +181,28 @@ public class ClickHouseService {
 
       stmt.executeBatch();
       logger.info("Successfully inserted {} session events into ClickHouse", events.size());
+      
+      // Also insert to Redshift if enabled
+      if (redshiftEnabled && redshiftService != null) {
+        redshiftService.insertSessionEventsAsync(events);
+        logger.debug("Triggered async Redshift insert for {} session events", events.size());
+      }
     }
   }
 
   public boolean isHealthy() {
     try (PreparedStatement stmt = clickHouseConnection.prepareStatement("SELECT 1")) {
       ResultSet rs = stmt.executeQuery();
-      return rs.next() && rs.getInt(1) == 1;
+      boolean clickHouseHealthy = rs.next() && rs.getInt(1) == 1;
+      
+      // Check Redshift health if enabled
+      boolean redshiftHealthy = true;
+      if (redshiftEnabled && redshiftService != null) {
+        redshiftHealthy = redshiftService.isHealthy();
+      }
+      
+      logger.debug("Health check - ClickHouse: {}, Redshift: {}", clickHouseHealthy, redshiftHealthy);
+      return clickHouseHealthy && redshiftHealthy;
     } catch (SQLException e) {
       logger.error("ClickHouse health check failed", e);
       return false;
