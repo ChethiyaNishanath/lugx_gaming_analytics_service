@@ -23,7 +23,7 @@ public class RedshiftConfig {
 
     private static final Logger logger = LoggerFactory.getLogger(RedshiftConfig.class);
 
-    @Value("${aws.region:us-east-1}")
+    @Value("${aws.region:eu-north-1}")
     private String awsRegion;
 
     @Value("${aws.redshift.cluster.endpoint}")
@@ -79,17 +79,33 @@ public class RedshiftConfig {
     @Bean(name = "redshiftConnection")
     public Connection redshiftConnection() {
         try {
-            // Register PostgreSQL driver
-            Class.forName("org.postgresql.Driver");
+            String jdbcUrl;
             
-            String jdbcUrl = String.format("jdbc:postgresql://%s:%d/%s", 
-                redshiftEndpoint, redshiftPort, redshiftDatabase);
+            if (redshiftEndpoint.startsWith("jdbc:redshift://")) {
+                // For Redshift Serverless, use the Amazon Redshift JDBC driver
+                Class.forName("com.amazon.redshift.jdbc.Driver");
+                jdbcUrl = redshiftEndpoint + "/" + redshiftDatabase;
+                logger.info("Using Amazon Redshift JDBC driver for Redshift Serverless");
+            } else {
+                // For regular Redshift cluster endpoints, use PostgreSQL driver
+                Class.forName("org.postgresql.Driver");
+                jdbcUrl = String.format("jdbc:postgresql://%s:%d/%s", 
+                    redshiftEndpoint, redshiftPort, redshiftDatabase);
+                logger.info("Using PostgreSQL JDBC driver for Redshift cluster");
+            }
             
             Properties props = new Properties();
             props.setProperty("user", redshiftUsername);
             props.setProperty("password", redshiftPassword);
             props.setProperty("ssl", "true");
-            props.setProperty("sslfactory", "org.postgresql.ssl.NonValidatingFactory");
+            
+            // Different SSL settings for different drivers
+            if (redshiftEndpoint.startsWith("jdbc:redshift://")) {
+                props.setProperty("sslMode", "require");
+            } else {
+                props.setProperty("sslfactory", "org.postgresql.ssl.NonValidatingFactory");
+            }
+            
             props.setProperty("loginTimeout", String.valueOf(connectionTimeout));
             props.setProperty("socketTimeout", String.valueOf(connectionTimeout * 1000));
             props.setProperty("tcpKeepAlive", "true");
@@ -101,8 +117,8 @@ public class RedshiftConfig {
             return connection;
             
         } catch (ClassNotFoundException e) {
-            logger.error("PostgreSQL JDBC driver not found", e);
-            throw new RuntimeException("PostgreSQL JDBC driver not found", e);
+            logger.error("JDBC driver not found", e);
+            throw new RuntimeException("JDBC driver not found", e);
         } catch (SQLException e) {
             logger.error("Failed to connect to Redshift: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to connect to Redshift", e);
@@ -143,7 +159,13 @@ public class RedshiftConfig {
         public String getPassword() { return password; }
         
         public String getJdbcUrl() {
-            return String.format("jdbc:postgresql://%s:%d/%s", endpoint, port, database);
+            if (endpoint.startsWith("jdbc:redshift://")) {
+                // For Redshift Serverless, use the full URL
+                return endpoint + "/" + database;
+            } else {
+                // For regular Redshift cluster endpoints
+                return String.format("jdbc:postgresql://%s:%d/%s", endpoint, port, database);
+            }
         }
     }
 }

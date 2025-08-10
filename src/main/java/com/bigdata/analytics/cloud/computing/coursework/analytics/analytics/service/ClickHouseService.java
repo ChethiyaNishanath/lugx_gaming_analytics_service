@@ -34,7 +34,7 @@ public class ClickHouseService {
   public void insertPageViewEvents(List<PageViewEvent> events) throws SQLException {
     String sql =
         """
-            INSERT INTO page_view_events (
+            INSERT INTO default.page_view_events (
                 session_id, user_id, page_url, page_title, referrer, load_time,
                 timestamp, user_agent, ip_address, device_type, browser, os, country, city
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -74,7 +74,7 @@ public class ClickHouseService {
   public void insertClickEvents(List<ClickEvent> events) throws SQLException {
     String sql =
         """
-            INSERT INTO click_events (
+            INSERT INTO default.click_events (
                 session_id, user_id, element_id, element_text,
                 page_url, click_x, click_y, timestamp, user_agent, ip_address, device_type,
                 browser, os, country, city
@@ -116,7 +116,7 @@ public class ClickHouseService {
   public void insertScrollEvents(List<ScrollEvent> events) throws SQLException {
     String sql =
         """
-            INSERT INTO scroll_events (
+            INSERT INTO default.scroll_events (
                 session_id, user_id, page_url, scroll_depth, scroll_percentage,
                 timestamp, user_agent, ip_address, device_type, browser, os, country, city
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -155,7 +155,7 @@ public class ClickHouseService {
   public void insertSessionEvents(List<SessionEvent> events) throws SQLException {
     String sql =
         """
-            INSERT INTO session_events (
+            INSERT INTO default.session_events (
                 session_id, user_id, event_type, page_count,
                 timestamp, user_agent, ip_address, device_type, browser, os, country, city
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -237,7 +237,7 @@ public class ClickHouseService {
                 uniq(user_id) as unique_users,
                 avg(page_load_time) as avg_load_time,
                 avg(time_on_page) as avg_time_on_page
-            FROM page_view_events\s
+            FROM default.page_view_events\s
             WHERE timestamp >= now() - INTERVAL %s
             GROUP BY hour\s
             ORDER BY hour
@@ -261,7 +261,7 @@ public class ClickHouseService {
                 avg(time_on_page) as avg_time_on_page,
                 countIf(is_bounce = 1) as bounces,
                 (countIf(is_bounce = 1) / count()) * 100 as bounce_rate
-            FROM page_view_events\s
+            FROM default.page_view_events\s
             WHERE timestamp >= now() - INTERVAL %s
             GROUP BY page_url, page_title\s
             ORDER BY views DESC\s
@@ -287,7 +287,7 @@ public class ClickHouseService {
                 avg(click_x) as avg_x,
                 avg(click_y) as avg_y,
                 countIf(is_double_click = 1) as double_clicks
-            FROM click_events\s
+            FROM default.click_events\s
             WHERE timestamp >= now() - INTERVAL %s
             GROUP BY page_url, element_tag, element_id, element_class
             HAVING clicks > 5
@@ -310,7 +310,7 @@ public class ClickHouseService {
                 avg(scroll_depth) as avg_scroll_depth,
                 count() as scroll_events,
                 uniq(session_id) as unique_sessions
-            FROM scroll_events\s
+            FROM default.scroll_events\s
             WHERE timestamp >= now() - INTERVAL %s
             GROUP BY page_url
             ORDER BY avg_scroll_percentage DESC
@@ -331,7 +331,7 @@ public class ClickHouseService {
                 avg(page_count) as avg_pages_per_session,
                 count() as total_sessions,
                 uniq(user_id) as unique_users
-            FROM session_events\s
+            FROM default.session_events\s
             WHERE event_type = 'session_end'
                 AND timestamp >= now() - INTERVAL %s
            \s"""
@@ -344,11 +344,11 @@ public class ClickHouseService {
     String sql =
         """
             SELECT\s
-                (SELECT count() FROM page_view_events WHERE timestamp >= now() - INTERVAL 1 HOUR) as page_views_last_hour,
-                (SELECT count() FROM click_events WHERE timestamp >= now() - INTERVAL 1 HOUR) as clicks_last_hour,
-                (SELECT count() FROM scroll_events WHERE timestamp >= now() - INTERVAL 1 HOUR) as scroll_events_last_hour,
-                (SELECT uniq(session_id) FROM page_view_events WHERE timestamp >= now() - INTERVAL 1 HOUR) as active_sessions,
-                (SELECT uniq(user_id) FROM page_view_events WHERE timestamp >= now() - INTERVAL 1 HOUR) as active_users
+                (SELECT count() FROM default.page_view_events WHERE timestamp >= now() - INTERVAL 1 HOUR) as page_views_last_hour,
+                (SELECT count() FROM default.click_events WHERE timestamp >= now() - INTERVAL 1 HOUR) as clicks_last_hour,
+                (SELECT count() FROM default.scroll_events WHERE timestamp >= now() - INTERVAL 1 HOUR) as scroll_events_last_hour,
+                (SELECT uniq(session_id) FROM default.page_view_events WHERE timestamp >= now() - INTERVAL 1 HOUR) as active_sessions,
+                (SELECT uniq(user_id) FROM default.page_view_events WHERE timestamp >= now() - INTERVAL 1 HOUR) as active_users
            \s""";
 
     List<Map<String, Object>> results = executeQuery(sql);
@@ -367,7 +367,7 @@ public class ClickHouseService {
                 '' as element_id,
                 0 as scroll_depth,
                 0 as session_duration
-            FROM page_view_events\s
+            FROM default.page_view_events\s
             WHERE session_id = ?
            \s
             UNION ALL
@@ -381,7 +381,7 @@ public class ClickHouseService {
                 element_id,
                 0 as scroll_depth,
                 0 as session_duration
-            FROM click_events\s
+            FROM default.click_events\s
             WHERE session_id = ?
            \s
             UNION ALL
@@ -395,7 +395,7 @@ public class ClickHouseService {
                 '' as element_id,
                 scroll_depth,
                 0 as session_duration
-            FROM scroll_events\s
+            FROM default.scroll_events\s
             WHERE session_id = ?
            \s
             ORDER BY timestamp
@@ -418,7 +418,7 @@ public class ClickHouseService {
                 quantile(0.5)(load_time) as median_load_time,
                 quantile(0.95)(load_time) as p95_load_time,
                 count() as samples
-            FROM page_view_events
+            FROM default.page_view_events
             WHERE load_time > 0
                 AND timestamp >= now() - INTERVAL 24 HOUR
             GROUP BY page_url
@@ -449,7 +449,7 @@ public class ClickHouseService {
                 count() as page_views,
                 uniq(session_id) as unique_sessions,
                 uniq(user_id) as unique_users
-            FROM page_view_events\s
+            FROM default.page_view_events\s
             WHERE timestamp >= now() - INTERVAL %s
             GROUP BY hour\s
             ORDER BY hour

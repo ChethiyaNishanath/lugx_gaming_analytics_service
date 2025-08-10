@@ -350,6 +350,61 @@ PARTITION BY toYYYYMM(timestamp);
 clickhouse-client --multiquery < clickhouse_schema.sql
 ```
 
+## AWS Redshift Integration
+
+The service now supports dual database architecture with AWS Redshift for data warehousing alongside ClickHouse for real-time analytics.
+
+### Features
+
+- **Async Redshift Writes**: All events are written to Redshift asynchronously after ClickHouse insertion
+- **Batch Processing**: Configurable batch sizes for optimal Redshift performance
+- **Health Monitoring**: Redshift health checks integrated into the main health endpoint
+- **DDL Management**: REST endpoints for table creation and schema management
+- **Data API Support**: Uses AWS Redshift Data API for management operations
+
+### Setup
+
+1. **Create Redshift Cluster**: Follow the guide in `AWS_Redshift_Integration_Guide.md`
+2. **Configure Environment Variables**:
+   ```bash
+   export REDSHIFT_ENABLED=true
+   export REDSHIFT_CLUSTER_ID=lugx-analytics-cluster
+   export REDSHIFT_DATABASE=analytics
+   export REDSHIFT_ENDPOINT=your-cluster.region.redshift.amazonaws.com
+   export REDSHIFT_USERNAME=admin
+   export REDSHIFT_PASSWORD=YourPassword123
+   ```
+3. **Create Tables**: Run the SQL script `redshift_schema.sql` or use the REST endpoint:
+   ```bash
+   curl -X POST http://localhost:5000/analytics-service/redshift/init-tables
+   ```
+
+### Redshift-Specific Endpoints
+
+- `GET /redshift/health` - Redshift health status
+- `GET /redshift/info` - Redshift connection information
+- `POST /redshift/init-tables` - Initialize Redshift tables
+- `POST /redshift/ddl` - Execute DDL statements
+
+### Data Flow
+
+1. **Event Ingestion** → ClickHouse (immediate, synchronous)
+2. **Event Ingestion** → Redshift (async, batched)
+3. **Event Ingestion** → S3 Export (async, for QuickSight)
+
+### Performance Optimization
+
+- **Batch Size**: Default 1000 records per batch (configurable)
+- **Connection Pooling**: Persistent connections to Redshift
+- **Distribution Keys**: Tables distributed by session_id for optimal joins
+- **Sort Keys**: Optimized for time-series queries
+
+### Cost Considerations
+
+- Redshift integration is optional and can be disabled with `REDSHIFT_ENABLED=false`
+- Recommend using `dc2.large` for development, `ra3.xlplus` for production
+- Consider enabling auto-pause for development clusters
+
 ## Conversion Notes from Node.js
 
 This Spring Boot implementation provides equivalent functionality to the original Node.js service:
@@ -357,6 +412,8 @@ This Spring Boot implementation provides equivalent functionality to the origina
 - Express routes → Spring MVC Controllers
 - Middleware → Spring Interceptors/Filters
 - ClickHouse client → JDBC connection
+- **NEW**: Redshift integration with async processing
+- **NEW**: AWS S3 export for QuickSight
 - Rate limiting → Bucket4j library
 - User agent parsing → UserAgentUtils library
 - CORS handling → Spring CORS configuration
@@ -366,18 +423,31 @@ This Spring Boot implementation provides equivalent functionality to the origina
 
 The application includes:
 - Spring Boot Actuator health endpoints
-- Custom health checks for ClickHouse connectivity
-- Structured logging
+- Custom health checks for ClickHouse and Redshift connectivity
+- Structured logging with separate loggers for each database
 - Rate limiting with configurable thresholds
+- **NEW**: Database-specific health monitoring
+- **NEW**: Async operation monitoring
 
 ## Development
 
 For development mode, you can set:
 ```properties
 logging.level.com.bigdata.analytics=DEBUG
+logging.level.com.bigdata.analytics.cloud.computing.coursework.analytics.analytics.service.RedshiftService=DEBUG
 ```
 
-This will provide detailed logging for debugging purposes.
+This will provide detailed logging for debugging purposes, including Redshift operations.
+
+## Testing
+
+Test the complete integration:
+
+1. **Health Check**: `curl http://localhost:5000/analytics-service/health`
+2. **Send Events**: Use the analytics endpoints to send test data
+3. **Verify ClickHouse**: Check data in ClickHouse tables
+4. **Verify Redshift**: Check data in Redshift tables
+5. **Run Test Script**: Execute `test_redshift_integration.sql` in Redshift
 
 ---
 
@@ -390,6 +460,8 @@ For further reference, please consider the following sections:
 * [Spring Boot Maven Plugin Reference Guide](https://docs.spring.io/spring-boot/3.5.3/maven-plugin)
 * [Create an OCI image](https://docs.spring.io/spring-boot/3.5.3/maven-plugin/build-image.html)
 * [Spring Web](https://docs.spring.io/spring-boot/3.5.3/reference/web/servlet.html)
+* [AWS Redshift Documentation](https://docs.aws.amazon.com/redshift/)
+* [AWS SDK for Java Documentation](https://docs.aws.amazon.com/sdk-for-java/)
 
 ### Guides
 The following guides illustrate how to use some features concretely:
@@ -397,3 +469,4 @@ The following guides illustrate how to use some features concretely:
 * [Building a RESTful Web Service](https://spring.io/guides/gs/rest-service/)
 * [Serving Web Content with Spring MVC](https://spring.io/guides/gs/serving-web-content/)
 * [Building REST services with Spring](https://spring.io/guides/tutorials/rest/)
+* [AWS Redshift Integration Guide](./AWS_Redshift_Integration_Guide.md)

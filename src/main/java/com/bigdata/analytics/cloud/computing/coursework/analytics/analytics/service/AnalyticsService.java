@@ -31,8 +31,6 @@ public class AnalyticsService {
 
   @Autowired private ClickHouseService clickHouseService;
 
-  @Autowired private S3ExportService s3ExportService;
-
   public ApiResponse<Void> processEvents(
       AnalyticsEventRequest request, HttpServletRequest httpRequest) {
     if (request.isEmpty()) {
@@ -64,9 +62,6 @@ public class AnalyticsService {
           clickHouseService.insertPageViewEvents(enrichedPageViews);
           processedCount += enrichedPageViews.size();
           logger.info("Processed {} page view events", enrichedPageViews.size());
-
-          // Async export to S3 for QuickSight
-          s3ExportService.exportPageViewEventsAsync(convertPageViewEventsToMaps(enrichedPageViews));
         }
       }
 
@@ -87,9 +82,6 @@ public class AnalyticsService {
           clickHouseService.insertClickEvents(enrichedClicks);
           processedCount += enrichedClicks.size();
           logger.info("Processed {} click events", enrichedClicks.size());
-
-          // Async export to S3 for QuickSight
-          s3ExportService.exportClickEventsAsync(convertClickEventsToMaps(enrichedClicks));
         }
       }
 
@@ -110,9 +102,6 @@ public class AnalyticsService {
           clickHouseService.insertScrollEvents(enrichedScrolls);
           processedCount += enrichedScrolls.size();
           logger.info("Processed {} scroll events", enrichedScrolls.size());
-
-          // Async export to S3 for QuickSight
-          s3ExportService.exportScrollEventsAsync(convertScrollEventsToMaps(enrichedScrolls));
         }
       }
 
@@ -133,9 +122,6 @@ public class AnalyticsService {
           clickHouseService.insertSessionEvents(enrichedSessions);
           processedCount += enrichedSessions.size();
           logger.info("Processed {} session events", enrichedSessions.size());
-
-          // Async export to S3 for QuickSight
-          s3ExportService.exportSessionEventsAsync(convertSessionEventsToMaps(enrichedSessions));
         }
       }
 
@@ -225,7 +211,6 @@ public class AnalyticsService {
       throw new IllegalArgumentException("Invalid session event type: " + event.getEventType());
     }
   }
-
 
   private List<Map<String, Object>> convertPageViewEventsToMaps(List<PageViewEvent> events) {
     return events.stream()
